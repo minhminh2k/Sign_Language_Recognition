@@ -1,0 +1,14 @@
+mediapipe 
+opencv-python
+tensorflow 
+scikit-learn 
+matplotlib 
+numpy
+pandas
+seaborn
+ipykernel
+googletrans==4.0.0-rc1
+google_speech
+gTTS
+playsound
+pyttsx3
