@@ -12,3 +12,7 @@ google_speech
 gTTS
 playsound
 pyttsx3
+tk
+streamlit
+SpeechRecognition
+PyAudio
