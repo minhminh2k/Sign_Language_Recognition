@@ -31,6 +31,10 @@ pip install -r requirements.txt
 
 # Run
 streamlit run streamlit_sign.py
+
+# Close
+Ctrl + C before closing the app (Recommend)
+If you cannot close by Ctrl C, reopen localhost :))
 ```
 
 # Demo
