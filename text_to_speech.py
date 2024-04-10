@@ -17,15 +17,20 @@ engine = pyttsx3.init()
 from googletrans import Translator
 translator = Translator()
 
-def speak_vietnamese(text):
-
-    tts = gTTS(text=text, lang='vi', slow=False)
+def speak_from_text(text, language, directory=None):
+    tts = gTTS(text=text, lang=language, slow=False)
     tts.save("sound.mp3")
     file_dir = os.path.dirname('./sound.mp3')
     file_path = file_dir + '/sound.mp3'
-    playsound.playsound(file_path)
-    
-    os.remove("sound.mp3")
+
+def speak_vietnamese(text, language, directory=None):
+
+    tts = gTTS(text=text, lang=language, slow=False)
+    tts.save("sound.mp3")
+    file_dir = os.path.dirname('./sound.mp3')
+    file_path = file_dir + '/sound.mp3'
+    # playsound.playsound(file_path)
+    # os.remove("sound.mp3")
     
 def speak_english(text):
     """ RATE"""
@@ -46,8 +51,16 @@ def speak_english(text):
 
     engine.say(text)
     # engine.say('My current speaking rate is ' + str(rate))
+    
+    # Save to file
+    engine.save_to_file(text, 'speech.mp3')
+    
     engine.runAndWait()
     engine.stop()
+
+def translate_text(text="", input='en', output='vi'):
+    translated_text = translator.translate(text, src=input, dest=output).text
+    return translated_text
 
 def translate_to_vn(text):
     translated_text = translator.translate(text, src='en', dest='vi').text

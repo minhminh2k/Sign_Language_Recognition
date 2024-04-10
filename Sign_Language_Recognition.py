@@ -137,8 +137,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.sidebar.title('Sign Language Detection')
-st.sidebar.subheader('-Parameter')
+st.sidebar.title('Sign Language Recognition')
+# st.sidebar.subheader('-Parameter')
 
 @st.cache_data()
 def image_resize(image, width=None, height=None, inter=cv2.INTER_AREA):
@@ -204,15 +204,15 @@ elif app_mode == 'Sign Language to Text':
     st.title('Sign Language to Text')
     st.set_option('deprecation.showfileUploaderEncoding', False)
 
-    use_webcam = st.sidebar.button('Use Webcam')
-    record = st.sidebar.checkbox("Record Video")
-    if record:
-        st.checkbox("Recording", value=True)
+    use_webcam = st.sidebar.button('Webcam')
+    # record = st.sidebar.checkbox("Record Video")
+    # if record:
+    #     st.checkbox("Recording", value=True)
 
     st.sidebar.markdown('---')
-    sameer=""
+    # sameer=""
     st.markdown(' ## Output')
-    st.markdown(sameer)
+    # st.markdown(sameer)
 
     stframe = st.empty()
     video_file_buffer = st.sidebar.file_uploader("Upload a video", type=["mp4", "mov", 'avi', 'asf', 'm4v'])
@@ -236,8 +236,8 @@ elif app_mode == 'Sign Language to Text':
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps_input = int(cap.get(cv2.CAP_PROP_FPS))
 
-    codec = cv2.VideoWriter_fourcc('V', 'P', '0', '9')
-    out = cv2.VideoWriter('output1.mp4', codec, fps_input, (width, height))
+    # codec = cv2.VideoWriter_fourcc('V', 'P', '0', '9')
+    # out = cv2.VideoWriter('output1.mp4', codec, fps_input, (width, height))
 
     st.markdown("<hr/>", unsafe_allow_html=True)
 
@@ -277,8 +277,8 @@ elif app_mode == 'Sign Language to Text':
         if not ret:
             st.write("Video Capture Ended")
             break
-        
-        image = cv.flip(image, 1)  # Mirror display
+        if use_webcam:
+            image = cv.flip(image, 1)  # Mirror display
         debug_image = copy.deepcopy(image)
 
         # Detection implementation #############################################################
@@ -339,17 +339,15 @@ elif app_mode == 'Sign Language to Text':
                     point_history_classifier_labels[most_common_fg_id[0][0]],
                 )
 
-        # else:
-        #     point_history.append([0, 0])
+        else:
+            point_history.append([0, 0])
         
-            if record:
-                out.write(debug_image)
+        # if record:
+        #     out.write(debug_image)
             
         debug_image = draw_point_history(debug_image, point_history)
         debug_image = draw_info(debug_image, fps, mode, number=0)
-
         frame_placeholder.image(debug_image,channels="BGR", use_column_width=True)
-        
 
     # st.text('Video Processed')
 
@@ -358,7 +356,7 @@ elif app_mode == 'Sign Language to Text':
     # st.video(out_bytes)
 
     cap.release()
-    out.release()
+    # out.release()
     cv2.destroyAllWindows()
 else:
     st.title('Text to Sign Language')
