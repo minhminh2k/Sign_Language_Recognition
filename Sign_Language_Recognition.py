@@ -17,18 +17,18 @@ from collections import Counter, deque
 import threading
 
 from utils import CvFpsCalc
-from model import KeyPointClassifier
-from model import PointHistoryClassifier
 import playsound
 import sys
 import datetime
 import json
 import re
-
 import queue
 from time import strftime
-from utils_infor import *
 from text_to_speech import speak_english, speak_vietnamese, translate_to_vn, reading_thread
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense
+from tensorflow.keras.callbacks import TensorBoard
+from load_tensor_model import create_model, model_tensor
 
 # Argument Parsers
 def get_args():
@@ -68,59 +68,99 @@ min_tracking_confidence = args.min_tracking_confidence
 
 use_brect = True
 
-# # Camera preparation ###############################################################
-# cap = cv2.VideoCapture(cap_device)
-# cap.set(cv2.CAP_PROP_FRAME_WIDTH, cap_width)
-# cap.set(cv2.CAP_PROP_FRAME_HEIGHT, cap_height)
-
 # Model load #############################################################
-mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(
-    static_image_mode=use_static_image_mode,
-    max_num_hands=2,
-    min_detection_confidence=min_detection_confidence,
-    min_tracking_confidence=min_tracking_confidence,
-)
+mp_holistic = mp.solutions.holistic # Holistic model
+mp_drawing = mp.solutions.drawing_utils # Drawing utilities
 
-keypoint_classifier = KeyPointClassifier()
+# Path for exported data, numpy arrays
+DATA_PATH = os.path.join('MP_Data') 
 
-point_history_classifier = PointHistoryClassifier()
+# Actions that we try to detect
+actions = np.array(['hello', 'thanks', 'iloveyou', 'fuckyou'])
 
-# Read labels ###########################################################
-with open('model/keypoint_classifier/keypoint_classifier_label.csv',
-            encoding='utf-8-sig') as f:
-    keypoint_classifier_labels = csv.reader(f)
-    keypoint_classifier_labels = [
-        row[0] for row in keypoint_classifier_labels
-    ]
-with open(
-        'model/point_history_classifier/point_history_classifier_label.csv',
-        encoding='utf-8-sig') as f:
-    point_history_classifier_labels = csv.reader(f)
-    point_history_classifier_labels = [
-        row[0] for row in point_history_classifier_labels
-    ]
+# Thirty videos worth of data
+no_sequences = 30
+
+# Videos are going to be 30 frames in length
+sequence_length = 30
+
+# Label map
+label_map = {label:num for num, label in enumerate(actions)}
+
+def mediapipe_detection(image, model):
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) # COLOR CONVERSION BGR 2 RGB
+    image.flags.writeable = False                  # Image is no longer writeable
+    results = model.process(image)                 # Make prediction
+    image.flags.writeable = True                   # Image is now writeable 
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR) # COLOR COVERSION RGB 2 BGR
+    return image, results
+
+def draw_landmarks(image, results):
+    mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_holistic.POSE_CONNECTIONS) # Draw pose connections
+    mp_drawing.draw_landmarks(image, results.left_hand_landmarks, mp_holistic.HAND_CONNECTIONS) # Draw left hand connections
+    mp_drawing.draw_landmarks(image, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS) # Draw right hand connections
+    
+
+def draw_styled_landmarks(image, results):
+    # Draw pose connections
+    # mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_holistic.POSE_CONNECTIONS,
+    #                          mp_drawing.DrawingSpec(color=(80,22,10), thickness=2, circle_radius=4), 
+    #                          mp_drawing.DrawingSpec(color=(80,44,121), thickness=2, circle_radius=2)
+    #                          ) 
+    # Draw left hand connections
+    mp_drawing.draw_landmarks(image, results.left_hand_landmarks, mp_holistic.HAND_CONNECTIONS, 
+                             mp_drawing.DrawingSpec(color=(121,22,76), thickness=2, circle_radius=4), 
+                             mp_drawing.DrawingSpec(color=(121,44,250), thickness=2, circle_radius=2)
+                             ) 
+    # Draw right hand connections  
+    mp_drawing.draw_landmarks(image, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS, 
+                             mp_drawing.DrawingSpec(color=(245,117,66), thickness=2, circle_radius=4), 
+                             mp_drawing.DrawingSpec(color=(245,66,230), thickness=2, circle_radius=2)
+                             ) 
+
+def draw_bounding_boxes(image, results, res):
+    # Draw bounding box for hands
+    if results.right_hand_landmarks:
+        x_min = min(int(lm.x * image.shape[1]) for lm in results.right_hand_landmarks.landmark) - 15
+        x_max = max(int(lm.x * image.shape[1]) for lm in results.right_hand_landmarks.landmark) + 15
+        y_min = min(int(lm.y * image.shape[0]) for lm in results.right_hand_landmarks.landmark) - 15
+        y_max = max(int(lm.y * image.shape[0]) for lm in results.right_hand_landmarks.landmark) + 15
+        cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 255), 4)
+        
+        cv2.rectangle(image, (x_min, y_min - 25), (x_max, y_min), (0, 255, 255), cv2.FILLED)
+        cv2.putText(image, "Right: " + actions[np.argmax(res)] , (x_min, y_min - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1, cv2.LINE_AA)
+        
+    if results.left_hand_landmarks:
+        x_min = min(int(lm.x * image.shape[1]) for lm in results.left_hand_landmarks.landmark) - 15
+        x_max = max(int(lm.x * image.shape[1]) for lm in results.left_hand_landmarks.landmark)  + 15
+        y_min = min(int(lm.y * image.shape[0]) for lm in results.left_hand_landmarks.landmark) - 15
+        y_max = max(int(lm.y * image.shape[0]) for lm in results.left_hand_landmarks.landmark) + 15
+        cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 255), 4)
+        cv2.rectangle(image, (x_min, y_min - 25), (x_max, y_min), (0, 255, 255), cv2.FILLED)
+        cv2.putText(image, "Left: " + actions[np.argmax(res)], (x_min, y_min - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1, cv2.LINE_AA)
+    return image
+    
+def extract_keypoints(results):
+    pose = np.array([[res.x, res.y, res.z, res.visibility] for res in results.pose_landmarks.landmark]).flatten() if results.pose_landmarks else np.zeros(33*4)
+    lh = np.array([[res.x, res.y, res.z] for res in results.left_hand_landmarks.landmark]).flatten() if results.left_hand_landmarks else np.zeros(21*3)
+    rh = np.array([[res.x, res.y, res.z] for res in results.right_hand_landmarks.landmark]).flatten() if results.right_hand_landmarks else np.zeros(21*3)
+    return np.concatenate([pose, lh, rh])
+
+def draw_fps_info(image, fps):
+    cv2.putText(image, "FPS:" + str(fps), (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+               1.0, (0, 0, 0), 4, cv2.LINE_AA)
+    cv2.putText(image, "FPS:" + str(fps), (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+               1.0, (255, 255, 255), 2, cv2.LINE_AA)
+    return image
 
 # FPS Measurement ########################################################
 cvFpsCalc = CvFpsCalc(buffer_len=10)
 
-# Coordinate history #################################################################
-history_length = 16
-point_history = deque(maxlen=history_length)
-
-# Finger gesture history ################################################
-finger_gesture_history = deque(maxlen=history_length)
-
-#  ########################################################################
-mode = 0
-
-
 # Demo video
-DEMO_VIDEO = 'demo.mp4'
+DEMO_VIDEO = 'dqm.mp4'
 DEMO_IMAGE = 'demo.jpg'
 
 my_list = []
-
 
 st.markdown(
     """
@@ -178,11 +218,11 @@ if app_mode =='About App':
     """
     <style>
     [data-testid="stSidebar"][aria-expanded="true"] > div:first-child {
-        width: 400px;
+        width: 350px;
     }
     [data-testid="stSidebar"][aria-expanded="false"] > div:first-child {
-        width: 400px;
-        margin-left: -400px;
+        width: 350px;
+        margin-left: -350px;
     }
     </style>
     """,
@@ -190,14 +230,14 @@ if app_mode =='About App':
     )
     st.video('https://youtu.be/NYAFEmte4og')
     st.markdown('''
-              # About Me \n 
+            # About Me \n 
                 Hey this is **Sameer Edlabadkar**. Working on the technologies such as **Tensorflow, MediaPipe, OpenCV, ResNet50**. \n
 
                 Also check me out on Social Media
                 - [YouTube](https://www.youtube.com/@edlabadkarsameer/videos)
                 - [LinkedIn](https://www.linkedin.com/in/sameer-edlabadkar-43b48b1a7/)
                 - [GitHub](https://github.com/edlabadkarsameer)
-              If you are facing any issue while working feel free to mail me on **edlabadkarsameer@gmail.com**
+            If you are facing any issue while working feel free to mail me on **edlabadkarsameer@gmail.com**
 
                 ''')
 elif app_mode == 'Sign Language to Text':
@@ -205,14 +245,9 @@ elif app_mode == 'Sign Language to Text':
     st.set_option('deprecation.showfileUploaderEncoding', False)
 
     use_webcam = st.sidebar.button('Webcam')
-    # record = st.sidebar.checkbox("Record Video")
-    # if record:
-    #     st.checkbox("Recording", value=True)
 
     st.sidebar.markdown('---')
-    # sameer=""
     st.markdown(' ## Output')
-    # st.markdown(sameer)
 
     stframe = st.empty()
     video_file_buffer = st.sidebar.file_uploader("Upload a video", type=["mp4", "mov", 'avi', 'asf', 'm4v'])
@@ -236,8 +271,7 @@ elif app_mode == 'Sign Language to Text':
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps_input = int(cap.get(cv2.CAP_PROP_FPS))
 
-    # codec = cv2.VideoWriter_fourcc('V', 'P', '0', '9')
-    # out = cv2.VideoWriter('output1.mp4', codec, fps_input, (width, height))
+
 
     st.markdown("<hr/>", unsafe_allow_html=True)
 
@@ -246,117 +280,94 @@ elif app_mode == 'Sign Language to Text':
         """
         <style>
         [data-testid="stSidebar"][aria-expanded="true"] > div:first-child {
-            width: 400px;
+            width: 350px;
         }
         [data-testid="stSidebar"][aria-expanded="false"] > div:first-child {
-            width: 400px;
-            margin-left: -400px;
+            width: 350px;
+            margin-left: -350px;
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
-    finger_tips = [8, 12, 16, 20]
-    thumb_tip = 4
+    sequence = []
+    sentence = []
+    threshold = 0.8
+    res = ''
+
     frame_placeholder = st.empty()
     
     # Stop button
     stop_button_pressed = st.button("Stop")
     
-    while True and not stop_button_pressed:
-        fps = cvFpsCalc.get()
-        
-        # Process Key (ESC: end) #################################################
-        key = cv.waitKey(10)
-        if key == 27 or stop_button_pressed:  # ESC
-            break
-        # number, mode = select_mode(key, mode)
+    with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
+        while True and not stop_button_pressed:
+            fps = cvFpsCalc.get()
+            # Read feed
+            ret, frame = cap.read()
+            
+            if not ret:
+                st.write("Video Capture Ended")
+                break
+            
+            # if use_webcam:
+            #     image = cv2.flip(frame, 1)  # Mirror display
+            
+            # Make detections
+            image, results = mediapipe_detection(frame, holistic)
+            
+            # Draw landmarks
+            # draw_styled_landmarks(image, results)
+            
+            # 2. Prediction logic
+            if results.right_hand_landmarks or results.left_hand_landmarks:
+                keypoints = extract_keypoints(results)
 
-        # Camera capture #####################################################
-        ret, image = cap.read()
-        if not ret:
-            st.write("Video Capture Ended")
-            break
-        if use_webcam:
-            image = cv.flip(image, 1)  # Mirror display
-        debug_image = copy.deepcopy(image)
-
-        # Detection implementation #############################################################
-        image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
-
-        image.flags.writeable = False
-        results = hands.process(image)
-        image.flags.writeable = True
-
-        #  ####################################################################
-        if results.multi_hand_landmarks is not None:
-            for hand_landmarks, handedness in zip(results.multi_hand_landmarks,
-                                                  results.multi_handedness):
-                # Bounding box calculation
-                brect = calc_bounding_rect(debug_image, hand_landmarks)
-                # Landmark calculation
-                landmark_list = calc_landmark_list(debug_image, hand_landmarks)
-
-                # Conversion to relative coordinates / normalized coordinates
-                pre_processed_landmark_list = pre_process_landmark(
-                    landmark_list)
-                pre_processed_point_history_list = pre_process_point_history(
-                    debug_image, point_history)
-                # Write to the dataset file
-                # logging_csv(number, mode, pre_processed_landmark_list,
-                #             pre_processed_point_history_list)
-
-                # Hand sign classification
-                hand_sign_id = keypoint_classifier(pre_processed_landmark_list)
-                if hand_sign_id == 2:  # Point gesture
-                    point_history.append(landmark_list[8])
-                else:
-                    point_history.append([0, 0])
-
-                # Finger gesture classification
-                finger_gesture_id = 0
-                point_history_len = len(pre_processed_point_history_list)
-                if point_history_len == (history_length * 2):
-                    finger_gesture_id = point_history_classifier(
-                        pre_processed_point_history_list)
-
-                # Calculates the gesture IDs in the latest detection
-                finger_gesture_history.append(finger_gesture_id)
-                most_common_fg_id = Counter(
-                    finger_gesture_history).most_common()
-
-                # Drawing part
-                debug_image = draw_bounding_rect(use_brect, debug_image, brect)
-                debug_image = draw_landmarks(debug_image, landmark_list)
+                sequence.append(keypoints)
+                sequence = sequence[-30:]
                 
+                if len(sequence) == 30:
+                    res = model_tensor.predict(np.expand_dims(sequence, axis=0))[0]
+                    
+                #3. Viz logic
+                    if res[np.argmax(res)] > threshold: 
+                        if len(sentence) > 0: 
+                            if actions[np.argmax(res)] != sentence[-1]:
+                                sentence.append(actions[np.argmax(res)])
+                        else:
+                            sentence.append(actions[np.argmax(res)])
+
+                    if len(sentence) > 5: 
+                        sentence = sentence[-5:]
+
+                    # Viz probabilities
+                    # image = prob_viz(res, actions, image, colors)
+                    
+                if results.right_hand_landmarks:
+                    
+                    x_min = min(int(lm.x * image.shape[1]) for lm in results.right_hand_landmarks.landmark) - 15
+                    x_max = max(int(lm.x * image.shape[1]) for lm in results.right_hand_landmarks.landmark) + 15
+                    y_min = min(int(lm.y * image.shape[0]) for lm in results.right_hand_landmarks.landmark) - 15
+                    y_max = max(int(lm.y * image.shape[0]) for lm in results.right_hand_landmarks.landmark) + 15
+                    cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 255), 4)
+                    
+                    cv2.rectangle(image, (x_min, y_min - 25), (x_max, y_min), (0, 255, 255), cv2.FILLED)
+                    cv2.putText(image, "Right: " + actions[np.argmax(res)] , (x_min, y_min - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1, cv2.LINE_AA)
+                    
+                if results.left_hand_landmarks:
+                    x_min = min(int(lm.x * image.shape[1]) for lm in results.left_hand_landmarks.landmark) - 15
+                    x_max = max(int(lm.x * image.shape[1]) for lm in results.left_hand_landmarks.landmark)  + 15
+                    y_min = min(int(lm.y * image.shape[0]) for lm in results.left_hand_landmarks.landmark) - 15
+                    y_max = max(int(lm.y * image.shape[0]) for lm in results.left_hand_landmarks.landmark) + 15
+                    cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (0, 255, 255), 4)
+                    cv2.rectangle(image, (x_min, y_min - 25), (x_max, y_min), (0, 255, 255), cv2.FILLED)
+                    cv2.putText(image, "Left: " + actions[np.argmax(res)], (x_min, y_min - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1, cv2.LINE_AA)
+                    
+            image = draw_fps_info(image, fps)
             
-                debug_image = draw_info_text(
-                    debug_image,
-                    brect,
-                    handedness,
-                    # vietnamese_text,
-                    keypoint_classifier_labels[hand_sign_id],
-                    point_history_classifier_labels[most_common_fg_id[0][0]],
-                )
-
-        else:
-            point_history.append([0, 0])
-        
-        # if record:
-        #     out.write(debug_image)
-            
-        debug_image = draw_point_history(debug_image, point_history)
-        debug_image = draw_info(debug_image, fps, mode, number=0)
-        frame_placeholder.image(debug_image,channels="BGR", use_column_width=True)
-
-    # st.text('Video Processed')
-
-    # output_video = open('output1.mp4', 'rb')
-    # out_bytes = output_video.read()
-    # st.video(out_bytes)
+            frame_placeholder.image(image,channels="BGR", use_column_width=True)
 
     cap.release()
-    # out.release()
     cv2.destroyAllWindows()
 else:
     st.title('Text to Sign Language')
