@@ -11,8 +11,8 @@ import queue
 from time import strftime
 from gtts import gTTS
 
-import pyttsx3
-engine = pyttsx3.init()
+# import pyttsx3
+# engine = pyttsx3.init()
 
 from googletrans import Translator
 translator = Translator()
@@ -23,15 +23,14 @@ def speak_from_text(text, language, directory=None):
     file_dir = os.path.dirname('./sound.mp3')
     file_path = file_dir + '/sound.mp3'
 
-def speak_vietnamese(text, language, directory=None):
+def speak_vietnamese(text, language='vi', directory=None):
 
     tts = gTTS(text=text, lang=language, slow=False)
     tts.save("sound.mp3")
     file_dir = os.path.dirname('./sound.mp3')
     file_path = file_dir + '/sound.mp3'
-    # playsound.playsound(file_path)
-    # os.remove("sound.mp3")
     
+'''
 def speak_english(text):
     """ RATE"""
     rate = engine.getProperty('rate')   # getting details of current speaking rate
@@ -57,6 +56,7 @@ def speak_english(text):
     
     engine.runAndWait()
     engine.stop()
+'''
 
 def translate_text(text="", input='en', output='vi'):
     translated_text = translator.translate(text, src=input, dest=output).text
@@ -64,6 +64,10 @@ def translate_text(text="", input='en', output='vi'):
 
 def translate_to_vn(text):
     translated_text = translator.translate(text, src='en', dest='vi').text
+    return translated_text
+
+def translate_from_en(text):
+    translated_text = translator.translate(text, dest='en').text
     return translated_text
 
 def reading_thread(text, mode):

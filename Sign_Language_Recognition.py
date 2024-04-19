@@ -15,6 +15,7 @@ import argparse
 import itertools
 from collections import Counter, deque
 import threading
+import speech_recognition as sr
 
 from utils import CvFpsCalc
 import playsound
@@ -24,7 +25,7 @@ import json
 import re
 import queue
 from time import strftime
-from text_to_speech import speak_english, speak_vietnamese, translate_to_vn, reading_thread
+from text_to_speech import translate_to_vn, speak_from_text, translate_from_en
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
 from tensorflow.keras.callbacks import TensorBoard
@@ -103,10 +104,10 @@ def draw_landmarks(image, results):
 
 def draw_styled_landmarks(image, results):
     # Draw pose connections
-    # mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_holistic.POSE_CONNECTIONS,
-    #                          mp_drawing.DrawingSpec(color=(80,22,10), thickness=2, circle_radius=4), 
-    #                          mp_drawing.DrawingSpec(color=(80,44,121), thickness=2, circle_radius=2)
-    #                          ) 
+    mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_holistic.POSE_CONNECTIONS,
+                             mp_drawing.DrawingSpec(color=(80,22,10), thickness=2, circle_radius=4), 
+                             mp_drawing.DrawingSpec(color=(80,44,121), thickness=2, circle_radius=2)
+                             ) 
     # Draw left hand connections
     mp_drawing.draw_landmarks(image, results.left_hand_landmarks, mp_holistic.HAND_CONNECTIONS, 
                              mp_drawing.DrawingSpec(color=(121,22,76), thickness=2, circle_radius=4), 
@@ -208,7 +209,7 @@ def image_resize(image, width=None, height=None, inter=cv2.INTER_AREA):
     return resized
 
 app_mode = st.sidebar.selectbox('Choose the App mode',
-['About App','Sign Language to Text','Text to sign Language']
+['About App','Sign Language to Text','Text to sign Language', 'Speech to sign Language']
 )
 
 if app_mode =='About App':
@@ -369,9 +370,28 @@ elif app_mode == 'Sign Language to Text':
 
     cap.release()
     cv2.destroyAllWindows()
-else:
+elif app_mode == 'Text to sign Language':
     st.title('Text to Sign Language')
 
+    text = st.text_input("Enter text here:")
+    # convert text to lowercase
+    text = text.lower()
+    
+    if text:   
+        # Translate to english and query
+        input_text = translate_from_en(text)
+        
+        # if os.path.exists(f"videos/{input_text}.mp4"):
+        #     st.video(f"videos/{input_text}.mp4", format="video/mp4") # support youtube video
+        # else:
+        #     st.write("No video file was found")
+    
+        st.video("https://qipedc.moet.gov.vn/videos/D0006.mp4?autoplay=true") # support youtube video
+
+else:
+    st.title('Speech to Sign Language')
+    # initialize the speech recognition engine
+    r = sr.Recognizer()
 
     # define function to display sign language images
     def display_images(text):
@@ -389,7 +409,7 @@ else:
                 img = Image.open(img_path)
 
                 # update the position of the image
-                image_pos.image(img, width=500)
+                image_pos.image(img, width=300)
 
                 # wait for 2 seconds before displaying the next image
                 time.sleep(1)
@@ -402,7 +422,7 @@ else:
                 img = Image.open(img_path)
 
                 # update the position of the image
-                image_pos.image(img, width=500)
+                image_pos.image(img, width=300)
 
                 # wait for 2 seconds before displaying the next image
                 time.sleep(1)
@@ -411,13 +431,39 @@ else:
                 image_pos.empty()
 
         # wait for 2 seconds before removing the last image
-        time.sleep(2)
+        time.sleep(1)
         image_pos.empty()
 
 
-    text = st.text_input("Enter text:")
-    # convert text to lowercase
-    text = text.lower()
+    # add start button to start recording audio
+    if st.button("Start Talking"):
+        # record audio for 5 seconds
+        with sr.Microphone() as source:
+            st.write("Say something!")
+            audio = r.listen(source, phrase_time_limit=4)
+            # st.write("Time over, thank you")
+            try:
+                text = r.recognize_google(audio, language="vi-VN")
+            except sr.UnknownValueError:
+                text = ""
+                st.write("Sorry, I did not understand what you said.")
+            
+        if text != "":
+            # convert text to lowercase
+            text = text.lower()
+            
+            # display the final result
+            st.write(f"You said: {text}", font_size=41)
 
-    # display sign language images
-    display_images(text)
+            if text:   
+                # Translate to english and query
+                input_text = translate_from_en(text)
+                
+                if os.path.exists(f"videos/{input_text}.mp4"):
+                    st.video(f"videos/{input_text}.mp4", format="video/mp4") # support youtube video
+                else:
+                    st.write("No video file was found")
+                
+            
+            # display sign language images
+            # display_images(text)
