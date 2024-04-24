@@ -22,7 +22,7 @@ def load_relevant_data_subset(pq_path):
     return data.astype(np.float32)
 
 
-def inference_ASL(video_path="videos/tomorrow.mp4"):
+def inference_ASL(video_path="videos/hello.mp4"):
     interpreter = tf.lite.Interpreter(model_path="resources/model_weights/ISLR/model.tflite")
     found_signatures = list(interpreter.get_signature_list().keys())
 
