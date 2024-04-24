@@ -1,11 +1,13 @@
-mediapipe 
-opencv-python
-tensorflow 
-scikit-learn 
-matplotlib 
-numpy
+scikit-learn
+matplotlib
 pandas
+numpy
 seaborn
+tensorflow
+mediapipe
+opencv-python
+pyarrow
+fastparquet
 ipykernel
 googletrans==4.0.0-rc1
 google_speech
@@ -16,3 +18,4 @@ tk
 streamlit
 SpeechRecognition
 PyAudio
+flask
