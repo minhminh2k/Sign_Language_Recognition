@@ -2,11 +2,12 @@ import streamlit as st
 import mediapipe as mp
 import cv2
 import numpy as np
+import pandas as pd
+import tensorflow as tf
 import tempfile
 import time
 from PIL import Image, ImageTk
 import os
-from PIL import Image
 import time
 import csv
 import copy
@@ -18,7 +19,8 @@ import json
 from time import strftime
 from text_to_speech import translate_to_vn, speak_from_text, translate_from_en
 
-from inference import inference_ASL
+from inference import inference_ASL, load_relevant_data_subset
+from create_frame_parquet import create_output_parquet
 
 # Argument Parsers
 def get_args():
@@ -73,17 +75,64 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# CSS styles
 css = open("style.css")
 st.markdown(f"<style>{css.read()}</style>", unsafe_allow_html=True)
 css.close()
 
+@st.cache_resource
+def loading_model():
+    interpreter = tf.lite.Interpreter(model_path="resources/model_weights/ISLR/model.tflite")
+    found_signatures = list(interpreter.get_signature_list().keys())
 
+    # if REQUIRED_SIGNATURE not in found_signatures:
+    #     raise KernelEvalException('Required input signature not found.')
+
+    prediction_fn = interpreter.get_signature_runner("serving_default")
+    return prediction_fn
+
+@st.cache_data
+def loading_class():
+    train = pd.read_csv('resources/data/ISLR/train.csv')
+    train['sign_ord'] = train['sign'].astype('category').cat.codes
+
+    # Dictionaries
+    SIGN2ORD = train[['sign', 'sign_ord']].set_index('sign').squeeze().to_dict()
+    ORD2SIGN = train[['sign_ord', 'sign']].set_index('sign_ord').squeeze().to_dict()
+    return ORD2SIGN
+
+def loading_inference_video(video_path="videos/hello.mp4", prediction_fn = None, ORD2SIGN = None):
+    if prediction_fn is None:
+        prediction_fn = loading_model()
+        
+    # Create output parquet file
+    create_output_parquet(video_path)
+
+    # Predict from parquet file
+    pq_file = "resources/data/ISLR/output.parquet"
+
+    try:
+        coordinates_xyz_np = load_relevant_data_subset(pq_file)
+        prediction = prediction_fn(inputs=coordinates_xyz_np)
+        sign = np.argmax(prediction['outputs'])
+        return ORD2SIGN[sign]
+        # print(sign)
+        
+    except:
+        return "Video is invalid!!!"
+
+### Loading model and class
+prediction_fn = loading_model()
+ORD2SIGN = loading_class()
+
+
+# Page title
 st.sidebar.title('Sign Language Recognition')
-
 
 app_mode = st.sidebar.selectbox('Choose the App mode',
 ['About App','Sign Language Recognition','Text to sign Language', 'Speech to sign Language']
 )
+
 
 if app_mode =='About App':
     st.title('Sign Language Detection')
@@ -103,6 +152,7 @@ if app_mode =='About App':
     )
 
 elif app_mode == 'Sign Language Recognition':
+    
     st.title(':call_me_hand: Sign Language Recognition from the video')
     st.markdown(
         """
@@ -125,14 +175,10 @@ elif app_mode == 'Sign Language Recognition':
         """,
         unsafe_allow_html=True,
     )
-    # st.markdown(button_html, unsafe_allow_html=True)
     st.set_option('deprecation.showfileUploaderEncoding', False)
-
-    st.sidebar.markdown('---')
-
-    stframe = st.empty()
     
-    # st.markdown("<p style='font-size: 24px; font-weight: bold;'>Upload a video</p>", unsafe_allow_html=True)
+    st.markdown("In this mode, you could upload a short video about the sign language you want to understand. Let's try it :hugging_face: !!!")
+    
     st.subheader('Upload a video')
     video_file_buffer = st.file_uploader("", type="mp4")
 
@@ -152,9 +198,12 @@ elif app_mode == 'Sign Language Recognition':
             status_placeholder = st.empty()
             with status_placeholder:
                 st.write('<div style="text-align:center;">Processing...</div>', unsafe_allow_html=True)
-            predicted = inference_ASL(video_path_save)
+            # predicted = inference_ASL(video_path_save)
+            predicted = loading_inference_video(video_path_save, prediction_fn, ORD2SIGN)
             with status_placeholder:
                 status_placeholder.empty()
+            
+            # Print
             print(predicted)
             st.text_area(label="", value=predicted, height=50)
     
