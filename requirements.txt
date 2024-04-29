@@ -19,3 +19,4 @@ streamlit
 SpeechRecognition
 PyAudio
 flask
+moviepy
