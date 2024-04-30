@@ -1,0 +1,8 @@
+.centered-text {
+  text-align: center;
+}
+
+.centered-textarea {
+  display: block;
+  margin: 0 auto;
+}
