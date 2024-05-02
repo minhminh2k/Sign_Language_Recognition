@@ -65,7 +65,7 @@ min_tracking_confidence = args.min_tracking_confidence
 
 # ----------------------Page config--------------------------------------
 
-st.set_page_config(page_title="Sign Language Recognition", page_icon=":hand:")
+st.set_page_config(page_title="Sign Language Recognition", page_icon=":hand:", layout="wide")
 
 
 st.markdown(
@@ -193,7 +193,7 @@ st.sidebar.title('Sign Language Recognition')
 
 ### App Mode
 app_mode = st.sidebar.selectbox('Choose the App mode',
-['About App','Isolated Sign Language Recognition', 'ASL Fingerspelling Recognition', 'Text to sign Language']
+['About App','Isolated Sign Language Recognition', 'ASL Fingerspelling Recognition', 'Text to sign Language', 'Dictionary']
 )
 
 if app_mode =='About App':
@@ -374,3 +374,70 @@ elif app_mode == 'Text to sign Language':
         #     st.write("No video file was found")
     
         st.video("https://qipedc.moet.gov.vn/videos/D0006.mp4?autoplay=true") # support youtube video
+
+elif app_mode == 'Dictionary':
+    st.title("Dictionary")
+    sheet_id = "1dbaXMziDDIQ9Rbt7yoNQPWMSOw72iGs1HNAYwPiu7lU"
+    sheet_name = "dictionary"
+    url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
+    df = pd.read_csv(url, dtype=str).fillna("")
+    # Use a text_input to get the keywords to filter the dataframe
+    text_search = st.text_input("Search videos by title", value="").lower()
+
+    # Filter the dataframe based on search term
+    if not text_search:  # If search term is empty
+        df_search = df
+    else:
+        m1 = df["Labels"].str.contains(text_search)
+        df_search = df[m1]
+
+    # Show all button
+    show_all = st.button("Show All", key="show_all_button", help="Click to show all videos")
+
+    # CSS customization for the button
+    st.markdown(
+        """
+        <style>
+            /* Adjust position to right of search bar */
+            div.stButton > button {
+                position: absolute;
+                right: 0;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 25px;
+                height: 100%;
+                border-radius: 0;
+                background-color: #f63366; /* Optional: Change background color */
+                color: white; /* Optional: Change text color */
+                font-size: 14px; /* Optional: Change font size */
+                padding: 0; /* Optional: Remove padding */
+            }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    # Show warning if no matching results found
+    if df_search.empty and text_search and not show_all:
+        st.warning("No matching results found for the search term.", icon="⚠️")
+    
+    # Show the cards
+    N_cards_per_row = 2
+
+    if show_all:
+        df_display = df
+    else:
+        df_display = df_search
+
+    for n_row, row in df_display.reset_index().iterrows():
+        i = n_row % N_cards_per_row
+        if i == 0:
+            st.write("---")
+            cols = st.columns(N_cards_per_row, gap="large")
+        # draw the card
+        with cols[n_row % N_cards_per_row]:
+            st.markdown(f'<p style="font-size: 30px; color: black; font-weight: bold;">{row["Labels"].strip()}</p>', unsafe_allow_html=True)
+            # Extract video ID from the link
+            video_id = row['Links'].split("v=")[-1].split("&")[0]
+            # Embed YouTube video
+            st.write(f'<iframe width="450" height="350" src="https://www.youtube.com/embed/{video_id}" frameborder="0" allowfullscreen></iframe>', unsafe_allow_html=True)
