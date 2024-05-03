@@ -20,3 +20,4 @@ SpeechRecognition
 PyAudio
 flask
 moviepy
+ffmpeg-python
