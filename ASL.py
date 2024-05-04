@@ -188,7 +188,7 @@ def loading_inference_video_fingerspelling(video_path="videos/fingerspelling/obr
 def record_video(filename: str, duration: int):
     cap = cv2.VideoCapture(0)  # Start the webcam
     fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Define the codec
-    out = cv2.VideoWriter(filename, fourcc, 20.0, (640, 480))  # Create VideoWriter object
+    out = cv2.VideoWriter(filename, fourcc, 24.0, (640, 480))  # Create VideoWriter object
 
     start_time = time.time()
     while True:
@@ -208,45 +208,6 @@ def record_video(filename: str, duration: int):
 # Function to display a YouTube video within Streamlit
 def show_video(link):
     st.video(link)
-
-# # Function to record video using OpenCV and MediaPipe
-# def record_video(max_recording_time=10):
-#     cap = cv2.VideoCapture(0)  # Use 0 for webcam, adjust for other cameras
-#     fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Video codec
-#     out = cv2.VideoWriter('user_recording.avi', fourcc, 20.0, (640, 480))
-#     start_time = time.time()
-#     recording = False
-
-#     while True:
-#         ret, frame = cap.read()
-
-#         # Record button and stop recording logic
-#         if st.button("Start Recording"):
-#             recording = True
-#             start_time = time.time()
-
-#         if recording:
-#             elapsed_time = time.time() - start_time
-#             if elapsed_time > max_recording_time:
-#                 recording = False
-#                 break
-
-#             # Draw recording indicator (optional)
-#             cv2.rectangle(frame, (50, 50), (150, 150), (0, 255, 0), 2)
-
-#             out.write(frame)
-
-#         # Display real-time webcam feed
-#         st.image(frame, channels="BGR")
-
-#         if cv2.waitKey(1) == ord('q') or not recording:
-#             break
-
-#     cap.release()
-#     out.release()
-#     cv2.destroyAllWindows()
-
-#     return 'user_recording.avi'
 
 ### Loading model and class ASL Fingerspelling
 prediction_fn_fingerspelling = loading_model_fingerspelling()
@@ -495,14 +456,13 @@ elif app_mode == 'Recording':
         if os.path.exists(mp4_filename):
             st.video(mp4_filename, format='video/mp4', start_time=0)
             
-            if st.button("Predict"):
-                with st.spinner("Processing..."):
-                    prediction = loading_inference_video(mp4_filename, prediction_fn, ORD2SIGN)
-                
-                # Print
-                st.success("Prediction completed!")
-                st.write("Prediction:", prediction)
-        else:
-            st.error('Error: Video file not found.')        
-                
-            
+        status_placeholder = st.empty()
+        with status_placeholder:
+            st.write('<div style="text-align:center;">Processing...</div>', unsafe_allow_html=True)
+        predicted = loading_inference_video(mp4_filename, prediction_fn, ORD2SIGN)
+        with status_placeholder:
+            status_placeholder.empty()
+    
+        # Print
+        print(predicted)
+        st.text_area(label="", value=predicted, height=50)
