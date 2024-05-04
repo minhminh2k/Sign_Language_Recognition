@@ -136,3 +136,5 @@ dmypy.json
 
 MP_Data/
 Logs/
+videos/
+resources/data/ISLR

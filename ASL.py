@@ -18,6 +18,7 @@ import speech_recognition as sr
 import json
 from time import strftime
 from moviepy.editor import VideoFileClip
+import subprocess
 
 from text_to_speech import translate_to_vn, speak_from_text, translate_from_en
 
@@ -182,6 +183,31 @@ def loading_inference_video_fingerspelling(video_path="videos/fingerspelling/obr
         return prediction_str
     except Exception as e:
         return e
+    
+# Function to record video
+def record_video(filename: str, duration: int):
+    cap = cv2.VideoCapture(0)  # Start the webcam
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Define the codec
+    out = cv2.VideoWriter(filename, fourcc, 24.0, (640, 480))  # Create VideoWriter object
+
+    start_time = time.time()
+    while True:
+        ret, frame = cap.read()  # Capture frame-by-frame
+        if ret:
+            out.write(frame)  # Write the frame into the file
+            cv2.imshow('Recording...', frame)  # Display the recording frame
+        if (time.time() - start_time) > duration:  # Check if duration is exceeded
+            break
+        if cv2.waitKey(1) & 0xFF == ord('q'):  # Stop recording on 'q' key
+            break
+
+    cap.release()  # Release the capture
+    out.release()  # Release the writer
+    cv2.destroyAllWindows()  # Close all OpenCV windows
+
+# Function to display a YouTube video within Streamlit
+def show_video(link):
+    st.video(link)
 
 ### Loading model and class ASL Fingerspelling
 prediction_fn_fingerspelling = loading_model_fingerspelling()
@@ -193,7 +219,7 @@ st.sidebar.title('Sign Language Recognition')
 
 ### App Mode
 app_mode = st.sidebar.selectbox('Choose the App mode',
-['About App','Isolated Sign Language Recognition', 'ASL Fingerspelling Recognition', 'Text to sign Language', 'Dictionary']
+['About App','Isolated Sign Language Recognition', 'ASL Fingerspelling Recognition', 'Text to sign Language', 'Dictionary', 'Video Quiz', 'Recording']
 )
 
 if app_mode =='About App':
@@ -441,3 +467,69 @@ elif app_mode == 'Dictionary':
             video_id = row['Links'].split("v=")[-1].split("&")[0]
             # Embed YouTube video
             st.write(f'<iframe width="450" height="350" src="https://www.youtube.com/embed/{video_id}" frameborder="0" allowfullscreen></iframe>', unsafe_allow_html=True)
+
+elif app_mode == 'Video Quiz':
+    st.title('Video Quiz')
+    
+    videos = {
+        'Video 1': {
+            'url': 'https://qipedc.moet.gov.vn/videos/D0006.mp4',
+            'correct_answer': 'A'
+        },
+        'Video 2': {
+            'url': 'https://qipedc.moet.gov.vn/videos/D0002.mp4',
+            'correct_answer': 'B'
+        }
+    }
+
+    selected_video = st.selectbox('Chọn video:', list(videos.keys()))
+
+    st.video(videos[selected_video]['url'])
+
+    user_answer = st.radio('What is your answer?', ['A', 'B'])
+
+    if st.button('Check Answer'):
+        correct_answer = videos[selected_video]['correct_answer']
+        if user_answer == correct_answer:
+            st.success('Correct! The answer is {}'.format(correct_answer))
+        else:
+            st.error('Incorrect. The correct answer is {}'.format(correct_answer))
+
+elif app_mode == 'Recording':
+    st.title("Record and Inference App")
+
+    word_link_dict = {
+        "Cat": "https://www.youtube.com/watch?v=iRXJXaLV0n4",
+        "Dog": "https://www.youtube.com/watch?v=hyPE15eWwi8",
+        "Bird": "https://m.youtube.com/watch?v=fBCAOjAS9d4",
+    }
+
+    selected_word = st.selectbox("Search a Word:", list(word_link_dict.keys()))
+
+    if selected_word:
+        show_video(word_link_dict[selected_word])
+
+    if st.button('Record'):
+        with st.spinner('Recording...'):
+            tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.avi')
+            record_video(tfile.name, 10)
+
+        st.success('Recording finished!')
+
+        # Convert XVID to H.264 (MP4)
+        mp4_filename = tfile.name.replace('.avi', '.mp4')
+        subprocess.run(['ffmpeg', '-i', tfile.name, '-vcodec', 'libx264', mp4_filename])
+
+        if os.path.exists(mp4_filename):
+            st.video(mp4_filename, format='video/mp4', start_time=0)
+            
+        status_placeholder = st.empty()
+        with status_placeholder:
+            st.write('<div style="text-align:center;">Processing...</div>', unsafe_allow_html=True)
+        predicted = loading_inference_video(mp4_filename, prediction_fn, ORD2SIGN)
+        with status_placeholder:
+            status_placeholder.empty()
+    
+        # Print
+        print(predicted)
+        st.text_area(label="", value=predicted, height=50)
