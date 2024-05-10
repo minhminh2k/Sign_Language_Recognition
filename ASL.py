@@ -182,7 +182,7 @@ def loading_inference_video_fingerspelling(video_path="videos/fingerspelling/obr
         prediction_str = "".join([rev_character_map.get(s, "") for s in np.argmax(output[REQUIRED_OUTPUT], axis=1)])
         return prediction_str
     except Exception as e:
-        return e
+        return "Video is invalid !!!"
     
 # Function to record video
 def record_video(filename: str, duration: int):
@@ -219,7 +219,7 @@ st.sidebar.title('Sign Language Recognition')
 
 ### App Mode
 app_mode = st.sidebar.selectbox('Choose the App mode',
-['About App','Isolated Sign Language Recognition', 'ASL Fingerspelling Recognition', 'Text to sign Language', 'Dictionary', 'Video Quiz', 'Recording']
+['About App','Isolated Sign Language Recognition', 'ASL Fingerspelling Recognition', 'Dictionary', 'Video Quiz', 'Recording']
 )
 
 if app_mode =='About App':
@@ -265,8 +265,8 @@ elif app_mode == 'Isolated Sign Language Recognition':
     )
     st.set_option('deprecation.showfileUploaderEncoding', False)
     
-    st.markdown("In this mode, you could upload a short video about the sign language you want to understand. Let's try it :hugging_face: !!!")
-    
+    st.markdown("This mode allows uploading videos and getting the corresponding isolated sign language returned. Users can upload videos depicting sign language, and the system will then analyze and return the isolated sign language as text based on the content of the uploaded video. Let's try it :hugging_face: !!!")
+    st.markdown("---")
     st.subheader('Upload a video')
     video_file_buffer = st.file_uploader("", type="mp4", key="ISL")
 
@@ -312,7 +312,7 @@ elif app_mode == 'Isolated Sign Language Recognition':
                 st.text_area(label="", value=predicted, height=50)
     
 elif app_mode == 'ASL Fingerspelling Recognition':
-    st.title(':v: American Sign Language Fingerspelling Recognition from the video')
+    st.title(':v: American Sign Language Fingerspelling Recognition')
     st.markdown(
         """
         <style>
@@ -324,82 +324,82 @@ elif app_mode == 'ASL Fingerspelling Recognition':
             margin-left: -350px;
         }
         textarea {
-        font-size: 2rem !important;
+            font-size: 2rem !important;
         }
         .stButton > button {
-        display: block;
-        margin: 0 auto;
-    }
+            display: block;
+            margin: 0 auto;
+        }
+        .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
+            font-size:1.1rem;
+        }
+        .font_des {
+            font-size:15px !important;
+        }
         </style>
         """,
         unsafe_allow_html=True,
     )
     st.set_option('deprecation.showfileUploaderEncoding', False)
     
-    st.markdown("In this mode, you could upload a short video about the finger-spelling sign language you want to know. Enjoy :smile: !!! ")
+    upload_video, finger_data = st.tabs(["Upload a video", "ASL Fingerspelling"])
     
-    st.subheader('Upload a video')
-    video_file_buffer_fingerspelling = st.file_uploader("", type="mp4", key="FP")
-
-    if video_file_buffer_fingerspelling is not None:
-        # Check video length
-        with open("videos/fingerspelling/temp_video.mp4", "wb") as f:
-            f.write(video_file_buffer_fingerspelling.getbuffer())
-
-        # Read the Mp4 file
-        video_path = "videos/fingerspelling/temp_video.mp4"
-        video = VideoFileClip(video_path)
-        duration = video.duration
-        video.close()
-
-        # Xóa tệp tạm thời
-        os.remove(video_path)
-
-        if duration > 30:
-            st.warning("Sorry, the video is too long (maximum 30 seconds).", icon="⚠️")
-        else:
-            video_bytes = video_file_buffer_fingerspelling.read()
-            
-            video_path_save_fingerspelling = 'videos/fingerspelling/video.mp4'
-            
-            with open(video_path_save_fingerspelling, 'wb') as f:
-                f.write(video_bytes)
-
-            st.success("The video has been uploaded successfully.", icon="✅")
-            
-            st.video(video_path_save_fingerspelling, loop=True)
-            
-            if st.button("Predict"):
-                status_placeholder = st.empty()
-                with status_placeholder:
-                    st.write('<div style="text-align:center;">Processing...</div>', unsafe_allow_html=True)
-
-                predicted = loading_inference_video_fingerspelling(video_path_save_fingerspelling, prediction_fn_fingerspelling, rev_character_map)
-                with status_placeholder:
-                    status_placeholder.empty()
-                
-                # Print
-                print(predicted)
-                st.text_area(label="", value=predicted, height=50)
-
-
-elif app_mode == 'Text to sign Language':
-    st.title('Text to Sign Language')
-
-    text = st.text_input("Enter text here:")
-    # convert text to lowercase
-    text = text.lower()
-    
-    if text:   
-        # Translate to english and query
-        input_text = translate_from_en(text)
+    with upload_video:
+        st.markdown("")
+        st.markdown("This mode allows uploading videos and getting the corresponding American sign language finger-spelling returned. Users can upload videos depicting sign language, and the system will then analyze and return the American sign language finger-spelling as text based on the content of the uploaded video. Enjoy :smile: !!!")
+        st.markdown("---")
+        st.subheader('Upload a video')
         
-        # if os.path.exists(f"videos/{input_text}.mp4"):
-        #     st.video(f"videos/{input_text}.mp4", format="video/mp4") # support youtube video
-        # else:
-        #     st.write("No video file was found")
-    
-        st.video("https://qipedc.moet.gov.vn/videos/D0006.mp4?autoplay=true") # support youtube video
+        video_file_buffer_fingerspelling = st.file_uploader("", type="mp4", key="FP")
+        
+        if video_file_buffer_fingerspelling is not None:
+            # Check video length
+            with open("videos/fingerspelling/temp_video.mp4", "wb") as f:
+                f.write(video_file_buffer_fingerspelling.getbuffer())
+
+            # Read the Mp4 file
+            video_path = "videos/fingerspelling/temp_video.mp4"
+            video = VideoFileClip(video_path)
+            duration = video.duration
+            video.close()
+
+            # Xóa tệp tạm thời
+            os.remove(video_path)
+
+            if duration > 60:
+                st.warning("Sorry, the video is too long (maximum 60 seconds).", icon="⚠️")
+            else:
+                video_bytes = video_file_buffer_fingerspelling.read()
+                
+                video_path_save_fingerspelling = 'videos/fingerspelling/video.mp4'
+                
+                with open(video_path_save_fingerspelling, 'wb') as f:
+                    f.write(video_bytes)
+
+                st.success("The video has been uploaded successfully.", icon="✅")
+                
+                st.video(video_path_save_fingerspelling, loop=True)
+                
+                if st.button("Predict"):
+                    status_placeholder = st.empty()
+                    with status_placeholder:
+                        st.write('<div style="text-align:center;">Processing...</div>', unsafe_allow_html=True)
+
+                    predicted = loading_inference_video_fingerspelling(video_path_save_fingerspelling, prediction_fn_fingerspelling, rev_character_map)
+                    with status_placeholder:
+                        status_placeholder.empty()
+                    
+                    # Print
+                    print(predicted)
+                    st.text_area(label="", value=predicted, height=50)
+                    
+    with finger_data: 
+        st.markdown("")
+        st.markdown('This image shows American Sign Language fingerspelling. The use of sign language is an important means of communication for deaf or hard of hearing people, helping them convey meaning and interact with the community around them.', unsafe_allow_html=True)
+        st.markdown("")
+
+        col1, col2, col3 = st.columns([0.6, 3.8, 0.6])
+        col2.image('resources/data/ASL_Fingerspelling/ASL.png', caption='American Sign Language Fingerspelling', width = 300, use_column_width=True)
 
 elif app_mode == 'Dictionary':
     st.title("Dictionary")
