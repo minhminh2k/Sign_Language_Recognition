@@ -225,7 +225,7 @@ app_mode = st.sidebar.selectbox('Choose the App mode',
 )
 
 if app_mode =='About App':
-    st.title('Sign Language Recognition')
+    st.title('✌🤙✊Sign Language Recognition')
     st.markdown(
     """
     <style>
@@ -240,6 +240,16 @@ if app_mode =='About App':
     """,
     unsafe_allow_html=True,
     )
+    st.markdown("Welcome to ASIGN, the American Sign Language Recognition and Inquiry Support Application :wave:.")
+    st.markdown("ASIGN is an application designed to assist in recognizing and researching American Sign Language (ASL) :hand::call_me_hand::fist:.")
+    st.markdown("Tailored to serve the deaf community and those interested in learning and understanding sign language, ASIGN offers a range of intelligent features and utilities suitable for both beginners and experienced sign language users.")
+    st.markdown("ASIGN provides a powerful :zap: and user-friendly interactive experience :grin:. Here are the main features of the application:")
+    st.markdown("1. Recognition of distinct sign languages from video :abc:: Users can upload videos, and the system will automatically analyze and provide a text description of the sign language used, helping users understand the information and meaning conveyed.")
+    st.markdown("2. Spelling recognition using American Sign Language :capital_abcd:: Users can upload videos, and the system will automatically analyze and provide a text description of the finger-spelling in American Sign Language, aiding users in understanding how to express and use ASL.")
+    st.markdown("3. Sign language word-by-word learning videos :notebook_with_decorative_cover:: ASIGN offers a diverse library of videos, with each word demonstrated by professional users, providing learners with the opportunity to observe and practice according to standard models.")
+    st.markdown("4. Question and answer section :pencil:: To enhance the learning process, ASIGN offers a question and answer section, allowing users to test their knowledge and quickly access necessary information.")
+    st.markdown("5. Analysis and practice from practice videos :film_projector:: This feature enables users to record and analyze themselves during sign language practice sessions, thereby improving their skills with confidence and effectiveness.")
+    st.markdown("With the combination of advanced features and a user-friendly interface, ASIGN promises to provide users with an easy and effective learning experience and access to sign language :smiling_face_with_3_hearts:.")
 
 elif app_mode == 'Isolated Sign Language Recognition':
     
@@ -404,9 +414,11 @@ elif app_mode == 'ASL Fingerspelling Recognition':
         col2.image('resources/data/ASL_Fingerspelling/ASL.png', caption='American Sign Language Fingerspelling', width = 300, use_column_width=True)
 
 elif app_mode == 'Dictionary':
-    st.title("Dictionary")
-    st.markdown("This dictionary will contain videos of the corresponding sign language words. Hopefully these videos will help you learn and use sign language better.")
-    st.markdown("If there is a video, a button will appear corresponding to the word you searched for. And you just need to click on that button and the video will be displayed. If there is no video, there will be a warning.")
+    st.title(":film_frames: Dictionary")
+    st.markdown("This dictionary will contain videos of the corresponding sign language words :v::call_me_hand:	:sign_of_the_horns:.")
+    st.markdown("Hopefully these videos will help you learn and use sign language better. :partying_face:")
+    st.markdown("If there is a video, a button will appear corresponding to the word you searched for :mag_right:.")
+    st.markdown(" And you just need to click on that button and the video will be displayed (:double_vertical_bar:). If there is no video, there will be a warning :warning:.")
     # Connect to the Google Sheet
     sheet_id = "1dbaXMziDDIQ9Rbt7yoNQPWMSOw72iGs1HNAYwPiu7lU"
     sheet_name = "dictionary"
@@ -547,20 +559,30 @@ elif app_mode == 'Dictionary':
         #print(getValue("Choose_label"))
         if st.button("Back", on_click=set_stage(2)):
             print("back lại ban đầu") 
-        st.markdown(f'<p style="font-size: 30px; color: black; font-weight: bold;">{getValue("Choose_label")}</p>', unsafe_allow_html=True)
         video_links = df[df['Labels'].str.contains(getValue("Choose_label"))]['Links'].tolist()
         video_id = video_links[0].split('=')[1]
         # Nếu có thêm tham số sau video_id, tiếp tục tách chuỗi bằng '&' và lấy phần tử đầu tiên
         if '&' in video_id:
             video_id = video_id.split('&')[0]
-        #print(video_id)
-        st.write(f'<iframe width="450" height="350" src="https://www.youtube.com/embed/{video_id}" frameborder="0" allowfullscreen></iframe>', unsafe_allow_html=True)
+
+        # Hiển thị tiêu đề và video ở giữa màn hình
+        st.markdown(
+            f"""
+            <div style="display: flex; flex-direction: column; align-items: center;">
+                <p style="font-size: 45px; color: black; font-weight: bold;">{getValue("Choose_label")}</p>
+                <iframe width="600" height="450" src="https://www.youtube.com/embed/{video_id}" frameborder="0" allowfullscreen></iframe>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        # Kiểm tra và thay đổi stage nếu cần
         if st.session_state.stage == 2:
             changeValue("Choose_label", "0")
             changeValue("Click", "0")
             changeValue("All", "1")
             changeValue("Search", "0")   
-            #print("Da thay doi ca gia")
+            print("Da thay doi ca gia")
             set_stage(0)
 
 elif app_mode == 'Video Quiz':
