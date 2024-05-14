@@ -185,21 +185,23 @@ def loading_inference_video_fingerspelling(video_path="videos/fingerspelling/obr
         return e
     
 # Function to record video
-def record_video(filename: str, duration: int):
+def record_video(filename, duration, frame_window):
     cap = cv2.VideoCapture(0)  # Start the webcam
     fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Define the codec
     out = cv2.VideoWriter(filename, fourcc, 24.0, (640, 480))  # Create VideoWriter object
 
     start_time = time.time()
+
     while True:
         ret, frame = cap.read()  # Capture frame-by-frame
         if ret:
             out.write(frame)  # Write the frame into the file
-            cv2.imshow('Recording...', frame)  # Display the recording frame
+            # cv2.imshow('Recording...', frame)  # Display the recording frame
+            frame_window.image(frame, channels='BGR')
         if (time.time() - start_time) > duration:  # Check if duration is exceeded
             break
-        if cv2.waitKey(1) & 0xFF == ord('q'):  # Stop recording on 'q' key
-            break
+        # if cv2.waitKey(1) & 0xFF == ord('q'):  # Stop recording on 'q' key
+        #     break
 
     cap.release()  # Release the capture
     out.release()  # Release the writer
@@ -208,6 +210,9 @@ def record_video(filename: str, duration: int):
 # Function to display a YouTube video within Streamlit
 def show_video(link):
     st.video(link)
+
+def run():
+    st.session_state.run = True
 
 ### Loading model and class ASL Fingerspelling
 prediction_fn_fingerspelling = loading_model_fingerspelling()
@@ -442,10 +447,19 @@ elif app_mode == 'Recording':
     if selected_word:
         show_video(word_link_dict[selected_word])
 
-    if st.button('Record'):
-        with st.spinner('Recording...'):
-            tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.avi')
-            record_video(tfile.name, 10)
+    FRAME_WINDOW = st.image([])
+
+    if 'run' not in st.session_state:
+        st.session_state.run = False
+
+    st.button('Record', key='record_button', on_click=run, disabled=st.session_state.run)
+
+    if st.session_state.run:
+        # with st.spinner('Recording...'):
+        tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.avi')
+        record_video(tfile.name, 8, FRAME_WINDOW)
+
+        FRAME_WINDOW.empty()
 
         st.success('Recording finished!')
 
@@ -465,4 +479,9 @@ elif app_mode == 'Recording':
     
         # Print
         print(predicted)
-        st.text_area(label="", value=predicted, height=50)
+        st.text_area(label="Prediction", value=predicted, height=50)
+        st.session_state.run = False
+        st.session_state.stop_recording = False
+
+        if st.button("Rerun", key="rerun"):
+            st.rerun()
