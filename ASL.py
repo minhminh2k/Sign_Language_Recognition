@@ -187,21 +187,23 @@ def loading_inference_video_fingerspelling(video_path="videos/fingerspelling/obr
         return "Video is invalid !!!"
     
 # Function to record video
-def record_video(filename: str, duration: int):
+def record_video(filename, duration, frame_window):
     cap = cv2.VideoCapture(0)  # Start the webcam
     fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Define the codec
     out = cv2.VideoWriter(filename, fourcc, 24.0, (640, 480))  # Create VideoWriter object
 
     start_time = time.time()
+
     while True:
         ret, frame = cap.read()  # Capture frame-by-frame
         if ret:
             out.write(frame)  # Write the frame into the file
-            cv2.imshow('Recording...', frame)  # Display the recording frame
+            # cv2.imshow('Recording...', frame)  # Display the recording frame
+            frame_window.image(frame, channels='BGR')
         if (time.time() - start_time) > duration:  # Check if duration is exceeded
             break
-        if cv2.waitKey(1) & 0xFF == ord('q'):  # Stop recording on 'q' key
-            break
+        # if cv2.waitKey(1) & 0xFF == ord('q'):  # Stop recording on 'q' key
+        #     break
 
     cap.release()  # Release the capture
     out.release()  # Release the writer
@@ -210,6 +212,9 @@ def record_video(filename: str, duration: int):
 # Function to display a YouTube video within Streamlit
 def show_video(link):
     st.video(link)
+
+def run():
+    st.session_state.run = True
 
 ### Loading model and class ASL Fingerspelling
 prediction_fn_fingerspelling = loading_model_fingerspelling()
@@ -221,7 +226,7 @@ st.sidebar.title('Sign Language Recognition')
 
 ### App Mode
 app_mode = st.sidebar.selectbox('Choose the App mode',
-['About App','Isolated Sign Language Recognition', 'ASL Fingerspelling Recognition', 'Dictionary', 'Video Quiz', 'Recording']
+['About App','Isolated Sign Language Recognition', 'ASL Fingerspelling Recognition', 'Dictionary', 'Video Quiz', 'Action Checker']
 )
 
 if app_mode =='About App':
@@ -612,41 +617,201 @@ elif app_mode == 'Video Quiz':
         else:
             st.error('Incorrect. The correct answer is {}'.format(correct_answer))
 
-elif app_mode == 'Recording':
-    st.title("Record and Inference App")
+elif app_mode == 'Action Checker':
+    st.title("Action Checker")
 
-    word_link_dict = {
-        "Cat": "https://www.youtube.com/watch?v=iRXJXaLV0n4",
-        "Dog": "https://www.youtube.com/watch?v=hyPE15eWwi8",
-        "Bird": "https://m.youtube.com/watch?v=fBCAOjAS9d4",
-    }
+    st.markdown("This mode is an extension of the Dictionary mode. It allows users to select a word from the dictionary, record a video of themselves and the system will check if the action of the user matches the selected word.")
+    # st.markdown("")
+    # Connect to the Google Sheet
+    sheet_id = "1dbaXMziDDIQ9Rbt7yoNQPWMSOw72iGs1HNAYwPiu7lU"
+    sheet_name = "dictionary"
+    url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
+    @st.cache_data
+    def load_data():
+        # Read data from Google Sheet
+        df = pd.read_csv(url, dtype=str).fillna("")
+        return df
 
-    selected_word = st.selectbox("Search a Word:", list(word_link_dict.keys()))
+    df = load_data()
 
-    if selected_word:
-        show_video(word_link_dict[selected_word])
+    if 'stage' not in st.session_state:
+        st.session_state.stage = 0
+        createCsv()
 
-    if st.button('Record'):
-        with st.spinner('Recording...'):
+    def set_stage(stage):
+            st.session_state.stage = stage
+
+    def clear_text():
+        st.session_state.my_text = st.session_state.widget
+        #print("Thay doi text_search")
+        changeValue("Choose_label", "0")
+        changeValue("Click", "0")
+        changeValue("All", "0")
+        changeValue("Search", "1")
+        st.session_state.widget = ""
+
+    text_search = st.text_input("Enter the word you want to search for in the search bar", value="", 
+                key='widget', 
+                on_change=clear_text
+                ).lower()
+
+    #print("Bat dau lai tu dau")
+
+    text_search = st.session_state.get('my_text', '')
+
+
+    if getValue("Search") == "0":
+        text_search = ""
+        
+    #print("Text search is:", text_search)
+
+    choose_label = getValue("Choose_label")
+    #print("Choose label là:", choose_label)
+
+    if choose_label == "0":
+        #print("chay lai")
+        print("")
+
+    if choose_label != "0":
+        text_search = choose_label
+        #print("da chon")
+
+    # Filter the dataframe based on search term
+    m1 = df["Labels"].str.contains(text_search)
+    df_search = df[m1]
+
+    # Show warning if no matching results found
+    if df_search.empty and text_search:
+        st.warning("No matching results found for the search term.", icon="⚠️")
+
+    # Show the cards
+    N_cards_per_row = 4
+
+    #print("GetAll: ", getValue("All"))
+
+    if not text_search or getValue("All") == "1":
+        df_display = df
+    else:
+        df_display = df_search
+
+    if getValue("Click") == "0":
+        st.markdown(
+            """
+            <style>
+                /* Thiết kế lại giao diện cho nút button */
+                div.stButton > button {
+                    padding: 0.8em 2em;
+                    font-size: 8px;
+                    text-transform: uppercase;
+                    letter-spacing: 2.5px;
+                    font-weight: 300;
+                    color: #000;
+                    background-color: #fff;
+                    border: 4 px solid grey;
+                    border-radius: 45px;
+                    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+                    transition: all 0.3s ease 0s;
+                    cursor: pointer;
+                    outline: none;
+                    width: 180px; /* Chỉnh sửa chiều rộng của button để cố định kích thước */
+                }
+
+                div.stButton > button:hover {
+                    background-color: #23c483;
+                    box-shadow: 0px 15px 20px rgba(46, 229, 157, 0.4);
+                    color: #fff;
+                    transform: translateY(-3px);
+                }
+
+                div.stButton > button:active {
+                    transform: translateY(-1px);
+                }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
+        # Dùng vòng lặp để tạo các nút button
+        for n_row, row in df_display.reset_index().iterrows():
+            i = n_row % N_cards_per_row
+            if i == 0:
+                st.write("---")
+                cols = st.columns(N_cards_per_row, gap="large")
+            # draw the card
+            with cols[n_row % N_cards_per_row]:
+                labels = row["Labels"].strip().split()
+                for label in labels:
+                    # Sử dụng st.markdown để tạo nút button và áp dụng CSS
+                    if st.button(label):
+                        changeValue("Choose_label", label)
+                        changeValue("Click", "1")
+                        changeValue("All", "0")
+                        changeValue("Search", "0")
+                        set_stage(1)
+                        st.rerun()
+
+
+    elif getValue("Click") == "1":
+        if st.button("Back"):
+            set_stage(2)
+            print("back lại ban đầu") 
+        st.markdown(f'<p style="font-size: 30px; color: black; font-weight: bold;">{getValue("Choose_label")}</p>', unsafe_allow_html=True)
+        video_links = df[df['Labels'].str.contains(getValue("Choose_label"))]['Links'].tolist()
+        video_id = video_links[0].split('=')[1]
+        # Nếu có thêm tham số sau video_id, tiếp tục tách chuỗi bằng '&' và lấy phần tử đầu tiên
+        if '&' in video_id:
+            video_id = video_id.split('&')[0]
+        #print(video_id)
+        st.write(f'<iframe width="450" height="350" src="https://www.youtube.com/embed/{video_id}" frameborder="0" allowfullscreen></iframe>', unsafe_allow_html=True)
+
+        FRAME_WINDOW = st.image([])
+
+        if 'run' not in st.session_state:
+            st.session_state.run = False
+
+        st.button('Record Video', key='record_button', on_click=run, disabled=st.session_state.run)
+
+        if st.session_state.run:
             tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.avi')
-            record_video(tfile.name, 10)
+            record_video(tfile.name, 8, FRAME_WINDOW)
 
-        st.success('Recording finished!')
+            FRAME_WINDOW.empty()
 
-        # Convert XVID to H.264 (MP4)
-        mp4_filename = tfile.name.replace('.avi', '.mp4')
-        subprocess.run(['ffmpeg', '-i', tfile.name, '-vcodec', 'libx264', mp4_filename])
+            st.success('Recording finished!')
 
-        if os.path.exists(mp4_filename):
-            st.video(mp4_filename, format='video/mp4', start_time=0)
-            
-        status_placeholder = st.empty()
-        with status_placeholder:
-            st.write('<div style="text-align:center;">Processing...</div>', unsafe_allow_html=True)
-        predicted = loading_inference_video(mp4_filename, prediction_fn, ORD2SIGN)
-        with status_placeholder:
-            status_placeholder.empty()
-    
-        # Print
-        print(predicted)
-        st.text_area(label="", value=predicted, height=50)
+            # Convert XVID to H.264 (MP4)
+            mp4_filename = tfile.name.replace('.avi', '.mp4')
+            subprocess.run(['ffmpeg', '-i', tfile.name, '-vcodec', 'libx264', mp4_filename])
+
+            if os.path.exists(mp4_filename):
+                st.video(mp4_filename, format='video/mp4', start_time=0)
+                
+            status_placeholder = st.empty()
+            with status_placeholder:
+                st.write('<div style="text-align:center;">Processing...</div>', unsafe_allow_html=True)
+            predicted = loading_inference_video(mp4_filename, prediction_fn, ORD2SIGN)
+            with status_placeholder:
+                status_placeholder.empty()
+        
+            # Print
+            print(predicted)
+            st.text_area(label="Prediction", value=predicted, height=50)
+            print(getValue("Choose_label"))
+            if getValue("Choose_label") == predicted:
+                st.success('Correct! Your action matches the selected word.')
+            else:
+                st.error('Incorrect. Your action does not match the selected word. Please try again.')
+            st.session_state.run = False
+            st.session_state.stop_recording = False
+
+            if st.button("Rerun", key="rerun"):
+                st.rerun()
+
+        if st.session_state.stage == 2:
+            changeValue("Choose_label", "0")
+            changeValue("Click", "0")
+            changeValue("All", "1")
+            changeValue("Search", "0")   
+            set_stage(0)
+            st.rerun()
+        
