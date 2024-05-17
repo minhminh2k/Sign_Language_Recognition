@@ -77,10 +77,8 @@ st.markdown(
     """
     <style>
     [data-testid="stSidebar"][aria-expanded="true"] > div:first-child {
-        width: 350px;
     }
     [data-testid="stSidebar"][aria-expanded="false"] > div:first-child {
-        width: 350px;
         margin-left: -350px;
     }
     </style>
@@ -282,10 +280,8 @@ if app_mode =='About App':
     """
     <style>
     [data-testid="stSidebar"][aria-expanded="true"] > div:first-child {
-        width: 350px;
     }
     [data-testid="stSidebar"][aria-expanded="false"] > div:first-child {
-        width: 350px;
         margin-left: -350px;
     }
     </style>
@@ -310,10 +306,8 @@ elif app_mode == 'Isolated Sign Language Recognition':
         """
         <style>
         [data-testid="stSidebar"][aria-expanded="true"] > div:first-child {
-            width: 350px;
         }
         [data-testid="stSidebar"][aria-expanded="false"] > div:first-child {
-            width: 350px;
             margin-left: -350px;
         }
         textarea {
@@ -381,10 +375,8 @@ elif app_mode == 'ASL Fingerspelling Recognition':
         """
         <style>
         [data-testid="stSidebar"][aria-expanded="true"] > div:first-child {
-            width: 350px;
         }
         [data-testid="stSidebar"][aria-expanded="false"] > div:first-child {
-            width: 350px;
             margin-left: -350px;
         }
         textarea {
