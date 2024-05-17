@@ -2,11 +2,13 @@ import streamlit as st
 import mediapipe as mp
 import cv2
 import numpy as np
+from urllib.parse import urlparse, parse_qs
 import pandas as pd
 import tensorflow as tf
 import tempfile
 import time
 from PIL import Image, ImageTk
+import random
 import os
 import time
 import csv
@@ -85,7 +87,16 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
+def random_numbers_except_one(x, n, excluded):
+    numbers = set()
+    while len(numbers) < x:
+        num = random.randint(0, n)
+        if num != excluded:
+            numbers.add(num)
+    numbers.add(excluded)
+    result = list(numbers)
+    random.shuffle(result)  # Sắp xếp ngẫu nhiên danh sách kết quả
+    return result
 # CSS styles
 css = open("style.css")
 st.markdown(f"<style>{css.read()}</style>", unsafe_allow_html=True)
@@ -112,7 +123,43 @@ def loading_class():
     SIGN2ORD = train[['sign', 'sign_ord']].set_index('sign').squeeze().to_dict()
     ORD2SIGN = train[['sign_ord', 'sign']].set_index('sign_ord').squeeze().to_dict()
     return ORD2SIGN
+def get_question():
+    sheet_id = "1dbaXMziDDIQ9Rbt7yoNQPWMSOw72iGs1HNAYwPiu7lU"
+    sheet_name = "dictionary"
+    url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
+    df = pd.read_csv(url, dtype=str).fillna("")
 
+    data = []
+    for i in range (0, df['Links'].size):
+        ans = random_numbers_except_one(3,df['Links'].size-1, i)
+        
+        data.append({
+            'type':1,
+            'url': df["Links"][int(i)],
+            'correct_answer': df["Labels"][i],
+            'A': df["Labels"][int(ans[0])],
+            'B': df["Labels"][int(ans[1])],
+            'C': df["Labels"][int(ans[2])],
+            'D': df["Labels"][int(ans[3])]
+        })
+    # for i in range (0, df['Links'].size):
+    #     ans = random_numbers_except_one(1,df['Links'].size-1, i)
+        
+    #     data.append({
+    #         'type':0,
+    #         'url': df["Links"][int(i)],
+    #         'word': df["Labels"][i],
+    #         'A': df["Links"][int(ans[0])],
+    #         'B': df["Links"][int(ans[1])],
+
+    #     })
+    return data
+
+
+def initialize_session_state():
+    session_state = st.session_state
+    session_state.form_count = 0
+    session_state.quiz_data = get_question()
 def loading_inference_video(video_path="videos/hello.mp4", prediction_fn = None, ORD2SIGN = None):
     if prediction_fn is None:
         prediction_fn = loading_model()
@@ -593,29 +640,60 @@ elif app_mode == 'Dictionary':
 elif app_mode == 'Video Quiz':
     st.title('Video Quiz')
     
-    videos = {
-        'Video 1': {
-            'url': 'https://qipedc.moet.gov.vn/videos/D0006.mp4',
-            'correct_answer': 'A'
-        },
-        'Video 2': {
-            'url': 'https://qipedc.moet.gov.vn/videos/D0002.mp4',
-            'correct_answer': 'B'
-        }
-    }
+    if 'form_count' not in st.session_state:
+        initialize_session_state()
+    if not st.session_state.quiz_data:
+        st.session_state.quiz_data = get_question()
+    if 'stage' not in st.session_state:
+        st.session_state.stage = 0
 
-    selected_video = st.selectbox('Chọn video:', list(videos.keys()))
+    def set_stage(stage):
+        st.session_state.stage = stage
+        print( st.session_state.stage)
 
-    st.video(videos[selected_video]['url'])
+    quiz_data = st.session_state.quiz_data
+            
+    link = str(quiz_data[st.session_state.form_count]['url'])
+    print(quiz_data)
+    def get_video_id(url):
+    # Phân tích URL
+        parsed_url = urlparse(url)
+        # Trích xuất các tham số từ URL
+        query_params = parse_qs(parsed_url.query)
+        # Lấy giá trị của tham số 'v'
+        video_id = query_params.get('v')
+        
+        # Trả về giá trị video ID, nếu tồn tại
+        if video_id:
+            return video_id[0]
+        return None
+    print(get_video_id(link))
+    
+    st.markdown(
+            f"""
+            <div style="display: flex; flex-direction: column; align-items: center;">
+                <iframe width="600" height="450" src="https://www.youtube.com/embed/{get_video_id(link)}" frameborder="0" allowfullscreen></iframe>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-    user_answer = st.radio('What is your answer?', ['A', 'B'])
+    user_answer = st.radio('What is your answer?', [quiz_data[st.session_state.form_count]['A'], quiz_data[st.session_state.form_count]['B'], quiz_data[st.session_state.form_count]['C'], quiz_data[st.session_state.form_count]['D']], on_change=set_stage, args=(0,))
 
-    if st.button('Check Answer'):
-        correct_answer = videos[selected_video]['correct_answer']
+
+    st.button('Check Answer', on_click=set_stage, args=(1,))
+    if st.session_state.stage >0 :
+        correct_answer = quiz_data[st.session_state.form_count]['correct_answer']
         if user_answer == correct_answer:
             st.success('Correct! The answer is {}'.format(correct_answer))
         else:
             st.error('Incorrect. The correct answer is {}'.format(correct_answer))
+        another_question = st.button("Another question", on_click=set_stage, args=(2,))
+    if st.session_state.stage >1 :
+        st.session_state.form_count+=1
+        set_stage(0)
+        st.experimental_rerun()
+
 
 elif app_mode == 'Action Checker':
     st.title("Action Checker")
@@ -814,4 +892,3 @@ elif app_mode == 'Action Checker':
             changeValue("Search", "0")   
             set_stage(0)
             st.rerun()
-        
