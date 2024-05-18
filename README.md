@@ -5,11 +5,11 @@
 - Đào Quý An - 21020602
 - Dương Quang Minh - 21020219
 - Lê Văn Bảo - 21020171
-- Nguyễn Thạch Anh -
+- Nguyễn Thạch Anh - 21020166
 
 ## Description
 
-Final Project for Human - Machine Interaction Class INT3412E 20
+Final Project for Human - Machine Interaction Class INT2041 20
 
 This repo was made by UET-VNU students
 
