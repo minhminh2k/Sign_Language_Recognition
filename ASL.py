@@ -5,6 +5,7 @@ import numpy as np
 from urllib.parse import urlparse, parse_qs
 import pandas as pd
 import tensorflow as tf
+import random
 import tempfile
 import time
 from PIL import Image, ImageTk
@@ -151,7 +152,8 @@ def get_question():
     #         'B': df["Links"][int(ans[1])],
 
     #     })
-    return data
+
+    return random.sample(data, len(data))
 
 
 def initialize_session_state():
@@ -631,7 +633,8 @@ elif app_mode == 'Dictionary':
 
 elif app_mode == 'Video Quiz':
     st.title('Video Quiz')
-    
+    st.markdown("This quiz review feature allows users to revisit and reflect on their quiz questions and answers :pencil:")
+    st.markdown("Please select the corresponding answer that is indicated in the clip, submit to see the results, and then continue with the next video to keep reviewing.")
     if 'form_count' not in st.session_state:
         initialize_session_state()
     if not st.session_state.quiz_data:
@@ -664,7 +667,7 @@ elif app_mode == 'Video Quiz':
     st.markdown(
             f"""
             <div style="display: flex; flex-direction: column; align-items: center;">
-                <iframe width="600" height="450" src="https://www.youtube.com/embed/{get_video_id(link)}" frameborder="0" allowfullscreen></iframe>
+                <iframe width="600" height="450" src="https://www.youtube.com/embed/{get_video_id(link)}?modestbranding=0&showinfo=0" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
             </div>
             """,
             unsafe_allow_html=True
