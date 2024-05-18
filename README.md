@@ -30,6 +30,7 @@ ASIGN provides a powerful and user-friendly interactive experience, Here are the
 ```bash
 # Clone project
 git clone https://github.com/minhminh2k/Sign_Language_Recognition.git
+cd Sign_Language_Recognition
 
 # Create conda environment
 conda create -p ./env python=3.10
