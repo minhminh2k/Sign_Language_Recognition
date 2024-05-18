@@ -27,7 +27,7 @@ ASIGN provides a powerful and user-friendly interactive experience, Here are the
 
 ## Installation
 
-````bash
+```bash
 # Clone project
 git clone https://github.com/minhminh2k/Sign_Language_Recognition.git
 
@@ -39,6 +39,7 @@ conda activate ./env
 # Install dependencies
 pip install -r requirements.txt
 conda install ffmpeg
+```
 
 ## How to run
 
@@ -48,7 +49,7 @@ streamlit run ASL.py
 
 # Close the app
 Ctrl + C before closing the app
-````
+```
 
 ## Reference
 
